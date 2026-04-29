@@ -5,8 +5,15 @@ import java.util.Random;
 public class GerarArrays {
 
     public static int[] generateRandomArray(int size, int maxValue) {
+        return generateRandomArray(size, maxValue, new Random());
+    }
+
+    public static int[] generateRandomArray(int size, int maxValue, long seed) {
+        return generateRandomArray(size, maxValue, new Random(seed));
+    }
+
+    private static int[] generateRandomArray(int size, int maxValue, Random random) {
         int[] array = new int[size];
-        Random random = new Random();
 
         for (int i = 0; i < size; i++) {
             array[i] = random.nextInt(maxValue);
@@ -36,8 +43,15 @@ public class GerarArrays {
     }
 
     public static int[] generatePartiallySortedArray(int size, int maxValue) {
+        return generatePartiallySortedArray(size, maxValue, new Random());
+    }
+
+    public static int[] generatePartiallySortedArray(int size, int maxValue, long seed) {
+        return generatePartiallySortedArray(size, maxValue, new Random(seed));
+    }
+
+    private static int[] generatePartiallySortedArray(int size, int maxValue, Random random) {
         int[] array = generateSortedArray(size);
-        Random random = new Random();
 
         int changes = size / 10;
 

@@ -45,6 +45,7 @@ public class QuickSort implements AlgoritmoSort {
     }
 
     private int partition(int[] array, int left, int right) {
+        moveMedianPivotToEnd(array, left, right);
         int pivot = array[right];
         int smallerIndex = left - 1;
 
@@ -58,6 +59,32 @@ public class QuickSort implements AlgoritmoSort {
         swap(array, smallerIndex + 1, right);
 
         return smallerIndex + 1;
+    }
+
+    private void moveMedianPivotToEnd(int[] array, int left, int right) {
+        int middle = left + (right - left) / 2;
+        int medianIndex = medianOfThreeIndex(array, left, middle, right);
+        swap(array, medianIndex, right);
+    }
+
+    private int medianOfThreeIndex(int[] array, int firstIndex, int secondIndex, int thirdIndex) {
+        int firstValue = array[firstIndex];
+        int secondValue = array[secondIndex];
+        int thirdValue = array[thirdIndex];
+
+        if (firstValue < secondValue) {
+            if (secondValue < thirdValue) {
+                return secondIndex;
+            }
+
+            return firstValue < thirdValue ? thirdIndex : firstIndex;
+        }
+
+        if (firstValue < thirdValue) {
+            return firstIndex;
+        }
+
+        return secondValue < thirdValue ? thirdIndex : secondIndex;
     }
 
     private void swap(int[] array, int firstIndex, int secondIndex) {
@@ -112,6 +139,7 @@ public class QuickSort implements AlgoritmoSort {
         }
 
         private static int partition(int[] array, int left, int right) {
+            moveMedianPivotToEnd(array, left, right);
             int pivot = array[right];
             int smallerIndex = left - 1;
 
@@ -125,6 +153,32 @@ public class QuickSort implements AlgoritmoSort {
             swap(array, smallerIndex + 1, right);
 
             return smallerIndex + 1;
+        }
+
+        private static void moveMedianPivotToEnd(int[] array, int left, int right) {
+            int middle = left + (right - left) / 2;
+            int medianIndex = medianOfThreeIndex(array, left, middle, right);
+            swap(array, medianIndex, right);
+        }
+
+        private static int medianOfThreeIndex(int[] array, int firstIndex, int secondIndex, int thirdIndex) {
+            int firstValue = array[firstIndex];
+            int secondValue = array[secondIndex];
+            int thirdValue = array[thirdIndex];
+
+            if (firstValue < secondValue) {
+                if (secondValue < thirdValue) {
+                    return secondIndex;
+                }
+
+                return firstValue < thirdValue ? thirdIndex : firstIndex;
+            }
+
+            if (firstValue < thirdValue) {
+                return firstIndex;
+            }
+
+            return secondValue < thirdValue ? thirdIndex : secondIndex;
         }
 
         private static void swap(int[] array, int firstIndex, int secondIndex) {

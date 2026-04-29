@@ -1,63 +1,31 @@
-import algoritmos.QuickSort;
-import algoritmos.AlgoritmoSort;
-import algoritmos.InsertionSort;
-import algoritmos.MergeSort;
-import algoritmos.SelectionSort;
-import utils.GerarArrays;
-import utils.ArrayUtils;
+import benchmark.BenchmarkAggregator;
+import benchmark.BenchmarkConfig;
+import benchmark.BenchmarkCsvExporter;
+import benchmark.BenchmarkResultado;
+import benchmark.BenchmarkRunner;
+import benchmark.BenchmarkResumo;
+
+import java.io.IOException;
+import java.util.List;
 
 public class Main {
 
-    public static void main(String[] args) {
-        int arraySize = 1_000_000;
-        int insertionSortArraySize = 20_000;
-        int selectionSortArraySize = 20_000;
-        int maxValue = 1_000_000;
+    public static void main(String[] args) throws IOException {
+        BenchmarkConfig config = BenchmarkConfig.defaultConfig();
+        BenchmarkRunner runner = new BenchmarkRunner();
 
-        int[] originalArray = GerarArrays.generateRandomArray(arraySize, maxValue);
-        int[] insertionSortArray = GerarArrays.generateRandomArray(insertionSortArraySize, maxValue);
-        int[] selectionSortArray = GerarArrays.generateRandomArray(selectionSortArraySize, maxValue);
+        List<BenchmarkResultado> resultados = runner.run(config);
+        List<BenchmarkResumo> resumos = BenchmarkAggregator.aggregate(resultados);
 
-        runTest(new QuickSort(false, 1), originalArray, 1);
-        runTest(new MergeSort(false, 1), originalArray, 1);
-        runTest(new SelectionSort(false, 1), selectionSortArray, 1);
-        runTest(new InsertionSort(false, 1), insertionSortArray, 1);
-
-        runTest(new QuickSort(true, 2), originalArray, 2);
-        runTest(new QuickSort(true, 4), originalArray, 4);
-        runTest(new QuickSort(true, 8), originalArray, 8);
-
-        runTest(new MergeSort(true, 2), originalArray, 2);
-        runTest(new MergeSort(true, 4), originalArray, 4);
-        runTest(new MergeSort(true, 8), originalArray, 8);
-
-        runTest(new SelectionSort(true, 2), selectionSortArray, 2);
-        runTest(new SelectionSort(true, 4), selectionSortArray, 4);
-        runTest(new SelectionSort(true, 8), selectionSortArray, 8);
-
-        runTest(new InsertionSort(true, 2), insertionSortArray, 2);
-        runTest(new InsertionSort(true, 4), insertionSortArray, 4);
-        runTest(new InsertionSort(true, 8), insertionSortArray, 8);
-    }
-
-    private static void runTest(AlgoritmoSort algorithm, int[] originalArray, int threads) {
-        int[] arrayToSort = ArrayUtils.copyArray(originalArray);
-
-        long startTime = System.currentTimeMillis();
-
-        algorithm.sort(arrayToSort);
-
-        long endTime = System.currentTimeMillis();
-
-        long executionTime = endTime - startTime;
-
-        boolean sortedCorrectly = ArrayUtils.isSorted(arrayToSort);
+        BenchmarkCsvExporter exporter = new BenchmarkCsvExporter();
+        exporter.exportRawResults(config.getOutputDirectory(), resultados);
+        exporter.exportSummaryResults(config.getOutputDirectory(), resumos);
 
         System.out.println("--------------------------------------");
-        System.out.println("Algoritmo: " + algorithm.getName());
-        System.out.println("Threads: " + threads);
-        System.out.println("Tamanho do array: " + arrayToSort.length);
-        System.out.println("Tempo de execução: " + executionTime + " ms");
-        System.out.println("Ordenado corretamente: " + sortedCorrectly);
+        System.out.println("Benchmark concluido");
+        System.out.println("Resultados brutos: " + config.getOutputDirectory() + "/benchmark_resultados.csv");
+        System.out.println("Resultados agregados: " + config.getOutputDirectory() + "/benchmark_resumo.csv");
+        System.out.println("Total de execucoes: " + resultados.size());
+        System.out.println("Total de cenarios agregados: " + resumos.size());
     }
 }

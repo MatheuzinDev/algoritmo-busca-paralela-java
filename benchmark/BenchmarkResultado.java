@@ -3,30 +3,40 @@ package benchmark;
 public class BenchmarkResultado {
 
     private final String algorithmName;
+    private final String mode;
     private final int arraySize;
     private final String inputType;
     private final int threads;
-    private final long executionTimeInMillis;
+    private final int sampleNumber;
+    private final long executionTimeInNanos;
     private final boolean sortedCorrectly;
 
     public BenchmarkResultado(
             String algorithmName,
+            String mode,
             int arraySize,
             String inputType,
             int threads,
-            long executionTimeInMillis,
+            int sampleNumber,
+            long executionTimeInNanos,
             boolean sortedCorrectly
     ) {
         this.algorithmName = algorithmName;
+        this.mode = mode;
         this.arraySize = arraySize;
         this.inputType = inputType;
         this.threads = threads;
-        this.executionTimeInMillis = executionTimeInMillis;
+        this.sampleNumber = sampleNumber;
+        this.executionTimeInNanos = executionTimeInNanos;
         this.sortedCorrectly = sortedCorrectly;
     }
 
     public String getAlgorithmName() {
         return algorithmName;
+    }
+
+    public String getMode() {
+        return mode;
     }
 
     public int getArraySize() {
@@ -41,8 +51,16 @@ public class BenchmarkResultado {
         return threads;
     }
 
-    public long getExecutionTimeInMillis() {
-        return executionTimeInMillis;
+    public int getSampleNumber() {
+        return sampleNumber;
+    }
+
+    public long getExecutionTimeInNanos() {
+        return executionTimeInNanos;
+    }
+
+    public double getExecutionTimeInMillis() {
+        return executionTimeInNanos / 1_000_000.0;
     }
 
     public boolean isSortedCorrectly() {
@@ -52,10 +70,12 @@ public class BenchmarkResultado {
     @Override
     public String toString() {
         return algorithmName +
+                " | Modo: " + mode +
                 " | Tamanho: " + arraySize +
                 " | Entrada: " + inputType +
                 " | Threads: " + threads +
-                " | Tempo: " + executionTimeInMillis + " ms" +
+                " | Amostra: " + sampleNumber +
+                " | Tempo: " + String.format("%.3f", getExecutionTimeInMillis()) + " ms" +
                 " | Ordenado: " + sortedCorrectly;
     }
 }
