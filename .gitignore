@@ -1,0 +1,4 @@
+*.class
+
+# Arquivos gerados pelo benchmark
+resultados/*.csv
