@@ -1,6 +1,7 @@
 import algoritmos.QuickSort;
 import algoritmos.AlgoritmoSort;
 import algoritmos.MergeSort;
+import algoritmos.SelectionSort;
 import utils.GerarArrays;
 import utils.ArrayUtils;
 
@@ -8,12 +9,15 @@ public class Main {
 
     public static void main(String[] args) {
         int arraySize = 1_000_000;
+        int selectionSortArraySize = 20_000;
         int maxValue = 1_000_000;
 
         int[] originalArray = GerarArrays.generateRandomArray(arraySize, maxValue);
+        int[] selectionSortArray = GerarArrays.generateRandomArray(selectionSortArraySize, maxValue);
 
         runTest(new QuickSort(false, 1), originalArray, 1);
         runTest(new MergeSort(false, 1), originalArray, 1);
+        runTest(new SelectionSort(false, 1), selectionSortArray, 1);
 
         runTest(new QuickSort(true, 2), originalArray, 2);
         runTest(new QuickSort(true, 4), originalArray, 4);
@@ -22,6 +26,10 @@ public class Main {
         runTest(new MergeSort(true, 2), originalArray, 2);
         runTest(new MergeSort(true, 4), originalArray, 4);
         runTest(new MergeSort(true, 8), originalArray, 8);
+
+        runTest(new SelectionSort(true, 2), selectionSortArray, 2);
+        runTest(new SelectionSort(true, 4), selectionSortArray, 4);
+        runTest(new SelectionSort(true, 8), selectionSortArray, 8);
     }
 
     private static void runTest(AlgoritmoSort algorithm, int[] originalArray, int threads) {
