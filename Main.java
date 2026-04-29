@@ -1,5 +1,6 @@
 import algoritmos.QuickSort;
 import algoritmos.AlgoritmoSort;
+import algoritmos.MergeSort;
 import utils.GerarArrays;
 import utils.ArrayUtils;
 
@@ -12,10 +13,15 @@ public class Main {
         int[] originalArray = GerarArrays.generateRandomArray(arraySize, maxValue);
 
         runTest(new QuickSort(false, 1), originalArray, 1);
+        runTest(new MergeSort(false, 1), originalArray, 1);
 
         runTest(new QuickSort(true, 2), originalArray, 2);
         runTest(new QuickSort(true, 4), originalArray, 4);
         runTest(new QuickSort(true, 8), originalArray, 8);
+
+        runTest(new MergeSort(true, 2), originalArray, 2);
+        runTest(new MergeSort(true, 4), originalArray, 4);
+        runTest(new MergeSort(true, 8), originalArray, 8);
     }
 
     private static void runTest(AlgoritmoSort algorithm, int[] originalArray, int threads) {
