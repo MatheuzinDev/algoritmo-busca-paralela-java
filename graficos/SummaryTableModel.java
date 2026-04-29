@@ -7,7 +7,7 @@ import java.util.List;
 public class SummaryTableModel extends AbstractTableModel {
 
     private final String[] columns = new String[]{
-            "Algoritmo", "Modo", "Threads", "Tamanho", "Entrada", "Media (ms)", "Min", "Max", "Desvio", "OK"
+            "Algoritmo", "Modo", "Threads", "Tamanho", "Entrada", "Media (ms)", "Desvio"
     };
 
     private List<BenchmarkSummaryRecord> records = new ArrayList<>();
@@ -43,10 +43,7 @@ public class SummaryTableModel extends AbstractTableModel {
             case 3 -> record.getArraySize();
             case 4 -> record.getInputType();
             case 5 -> String.format("%.3f", record.getAverageTimeMs());
-            case 6 -> String.format("%.3f", record.getMinTimeMs());
-            case 7 -> String.format("%.3f", record.getMaxTimeMs());
-            case 8 -> String.format("%.3f", record.getStandardDeviationMs());
-            case 9 -> record.isAllSortedCorrectly();
+            case 6 -> String.format("%.3f", record.getStandardDeviationMs());
             default -> "";
         };
     }

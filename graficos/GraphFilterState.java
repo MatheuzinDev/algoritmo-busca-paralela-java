@@ -3,13 +3,16 @@ package graficos;
 public class GraphFilterState {
 
     public static final String ALL = "Todos";
+    public static final String FAST_GROUP = "Quick + Merge";
+    public static final String QUADRATIC_GROUP = "Insertion + Selection";
 
-    private ChartType chartType = ChartType.BAR;
-    private String algorithm = ALL;
-    private String inputType = ALL;
-    private String mode = ALL;
+    private ChartType chartType = ChartType.SCALABILITY;
+    private String algorithmGroup = FAST_GROUP;
+    private String algorithm = "Quick Sort";
+    private String inputType = "random";
+    private String mode = "serial";
     private Integer arraySize;
-    private Integer threads;
+    private Integer threads = 4;
 
     public ChartType getChartType() {
         return chartType;
@@ -17,6 +20,14 @@ public class GraphFilterState {
 
     public void setChartType(ChartType chartType) {
         this.chartType = chartType;
+    }
+
+    public String getAlgorithmGroup() {
+        return algorithmGroup;
+    }
+
+    public void setAlgorithmGroup(String algorithmGroup) {
+        this.algorithmGroup = algorithmGroup;
     }
 
     public String getAlgorithm() {
@@ -59,31 +70,15 @@ public class GraphFilterState {
         this.threads = threads;
     }
 
-    public boolean matches(BenchmarkSummaryRecord record) {
-        return matchesAlgorithm(record)
-                && matchesInputType(record)
-                && matchesMode(record)
-                && matchesArraySize(record)
-                && matchesThreads(record);
-    }
+    public boolean isAlgorithmInSelectedGroup(String algorithmName) {
+        if (FAST_GROUP.equals(algorithmGroup)) {
+            return "Quick Sort".equals(algorithmName) || "Merge Sort".equals(algorithmName);
+        }
 
-    private boolean matchesAlgorithm(BenchmarkSummaryRecord record) {
-        return ALL.equals(algorithm) || algorithm.equals(record.getAlgorithm());
-    }
+        if (QUADRATIC_GROUP.equals(algorithmGroup)) {
+            return "Insertion Sort".equals(algorithmName) || "Selection Sort".equals(algorithmName);
+        }
 
-    private boolean matchesInputType(BenchmarkSummaryRecord record) {
-        return ALL.equals(inputType) || inputType.equals(record.getInputType());
-    }
-
-    private boolean matchesMode(BenchmarkSummaryRecord record) {
-        return ALL.equals(mode) || mode.equals(record.getMode());
-    }
-
-    private boolean matchesArraySize(BenchmarkSummaryRecord record) {
-        return arraySize == null || arraySize == record.getArraySize();
-    }
-
-    private boolean matchesThreads(BenchmarkSummaryRecord record) {
-        return threads == null || threads == record.getThreads();
+        return true;
     }
 }

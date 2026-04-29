@@ -1,8 +1,9 @@
 package graficos;
 
 public enum ChartType {
-    BAR("Barras"),
-    LINE("Linhas"),
+    SCALABILITY("Escalabilidade"),
+    SERIAL_VS_PARALLEL("Serial vs Paralelo"),
+    INPUT_IMPACT("Impacto da Entrada"),
     SPEEDUP("Speedup");
 
     private final String displayName;

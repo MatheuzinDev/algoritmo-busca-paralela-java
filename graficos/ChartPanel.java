@@ -14,6 +14,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -21,11 +22,12 @@ public class ChartPanel extends JPanel {
 
     private static final int LEFT_MARGIN = 80;
     private static final int RIGHT_MARGIN = 40;
-    private static final int TOP_MARGIN = 50;
+    private static final int TOP_MARGIN = 55;
     private static final int BOTTOM_MARGIN = 90;
 
     private final List<BenchmarkSummaryRecord> allRecords;
     private GraphFilterState filterState;
+    private List<BenchmarkSummaryRecord> tableRecords = new ArrayList<>();
 
     public ChartPanel(List<BenchmarkSummaryRecord> allRecords, GraphFilterState filterState) {
         this.allRecords = allRecords;
@@ -38,25 +40,55 @@ public class ChartPanel extends JPanel {
         repaint();
     }
 
+    public List<BenchmarkSummaryRecord> getTableRecords() {
+        return new ArrayList<>(tableRecords);
+    }
+
+    public List<BenchmarkSummaryRecord> getPreviewTableRecords() {
+        return switch (filterState.getChartType()) {
+            case SCALABILITY -> allRecords.stream()
+                    .filter(record -> filterState.isAlgorithmInSelectedGroup(record.getAlgorithm()))
+                    .filter(record -> record.getInputType().equals(filterState.getInputType()))
+                    .filter(record -> record.getMode().equals(filterState.getMode()))
+                    .filter(record -> "serial".equals(filterState.getMode()) || record.getThreads() == filterState.getThreads())
+                    .collect(Collectors.toList());
+            case SERIAL_VS_PARALLEL -> allRecords.stream()
+                    .filter(record -> record.getAlgorithm().equals(filterState.getAlgorithm()))
+                    .filter(record -> record.getInputType().equals(filterState.getInputType()))
+                    .filter(record -> record.getArraySize() == filterState.getArraySize())
+                    .collect(Collectors.toList());
+            case INPUT_IMPACT -> allRecords.stream()
+                    .filter(record -> record.getAlgorithm().equals(filterState.getAlgorithm()))
+                    .filter(record -> record.getMode().equals(filterState.getMode()))
+                    .filter(record -> record.getArraySize() == filterState.getArraySize())
+                    .filter(record -> "serial".equals(filterState.getMode()) || record.getThreads() == filterState.getThreads())
+                    .collect(Collectors.toList());
+            case SPEEDUP -> allRecords.stream()
+                    .filter(record -> filterState.isAlgorithmInSelectedGroup(record.getAlgorithm()))
+                    .filter(record -> record.getInputType().equals(filterState.getInputType()))
+                    .filter(record -> record.getArraySize() == filterState.getArraySize())
+                    .collect(Collectors.toList());
+        };
+    }
+
     @Override
     protected void paintComponent(Graphics graphics) {
         super.paintComponent(graphics);
 
         Graphics2D graphics2D = (Graphics2D) graphics.create();
         graphics2D.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-
-        List<BenchmarkSummaryRecord> filteredRecords = allRecords.stream()
-                .filter(filterState::matches)
-                .collect(Collectors.toList());
+        tableRecords = new ArrayList<>();
 
         drawTitle(graphics2D);
 
-        if (filterState.getChartType() == ChartType.SPEEDUP) {
-            drawSpeedupChart(graphics2D, filteredRecords);
-        } else if (filterState.getChartType() == ChartType.LINE) {
-            drawLineChart(graphics2D, filteredRecords);
+        if (filterState.getChartType() == ChartType.SCALABILITY) {
+            drawScalabilityChart(graphics2D);
+        } else if (filterState.getChartType() == ChartType.SERIAL_VS_PARALLEL) {
+            drawSerialVsParallelChart(graphics2D);
+        } else if (filterState.getChartType() == ChartType.INPUT_IMPACT) {
+            drawInputImpactChart(graphics2D);
         } else {
-            drawBarChart(graphics2D, filteredRecords);
+            drawSpeedupChart(graphics2D);
         }
 
         graphics2D.dispose();
@@ -69,80 +101,32 @@ public class ChartPanel extends JPanel {
     }
 
     private String buildTitle() {
-        if (filterState.getChartType() == ChartType.BAR) {
-            return "Comparacao por barras";
-        }
-
-        if (filterState.getChartType() == ChartType.LINE) {
-            return "Escalabilidade por tamanho de entrada";
-        }
-
-        return "Speedup em relacao a execucao serial";
+        return switch (filterState.getChartType()) {
+            case SCALABILITY -> "Escalabilidade dos algoritmos por tamanho da entrada";
+            case SERIAL_VS_PARALLEL -> "Comparacao entre execucao serial e paralela";
+            case INPUT_IMPACT -> "Impacto do tipo de entrada no desempenho";
+            case SPEEDUP -> "Speedup da versao paralela em relacao a serial";
+        };
     }
 
-    private void drawBarChart(Graphics2D graphics2D, List<BenchmarkSummaryRecord> filteredRecords) {
+    private void drawScalabilityChart(Graphics2D graphics2D) {
+        List<BenchmarkSummaryRecord> filteredRecords = allRecords.stream()
+                .filter(record -> filterState.isAlgorithmInSelectedGroup(record.getAlgorithm()))
+                .filter(record -> record.getInputType().equals(filterState.getInputType()))
+                .filter(record -> record.getMode().equals(filterState.getMode()))
+                .filter(record -> "serial".equals(filterState.getMode()) || record.getThreads() == filterState.getThreads())
+                .sorted(Comparator.comparing(BenchmarkSummaryRecord::getAlgorithm).thenComparingInt(BenchmarkSummaryRecord::getArraySize))
+                .collect(Collectors.toList());
+
+        tableRecords = filteredRecords;
+
         if (filteredRecords.isEmpty()) {
-            drawEmptyState(graphics2D, "Nenhum dado encontrado para os filtros atuais.");
+            drawEmptyState(graphics2D, "Nenhum dado encontrado para o grafico de escalabilidade.");
             return;
         }
 
-        if (filteredRecords.size() > 24) {
-            drawEmptyState(graphics2D, "Refine os filtros para reduzir a quantidade de barras.");
-            return;
-        }
-
-        filteredRecords.sort(Comparator
-                .comparing(BenchmarkSummaryRecord::getAlgorithm)
-                .thenComparing(BenchmarkSummaryRecord::getArraySize)
-                .thenComparing(BenchmarkSummaryRecord::getMode)
-                .thenComparingInt(BenchmarkSummaryRecord::getThreads));
-
-        double maxValue = filteredRecords.stream()
-                .mapToDouble(BenchmarkSummaryRecord::getAverageTimeMs)
-                .max()
-                .orElse(1.0);
-
-        ChartBounds bounds = buildChartBounds();
-        drawAxes(graphics2D, bounds, maxValue, "Tempo medio (ms)");
-
-        int barCount = filteredRecords.size();
-        double slotWidth = (double) bounds.width / barCount;
-        double barWidth = Math.max(14, slotWidth * 0.65);
-
-        for (int index = 0; index < filteredRecords.size(); index++) {
-            BenchmarkSummaryRecord record = filteredRecords.get(index);
-            double value = record.getAverageTimeMs();
-            double normalizedHeight = value / maxValue;
-            double height = normalizedHeight * bounds.height;
-            double x = bounds.x + slotWidth * index + (slotWidth - barWidth) / 2.0;
-            double y = bounds.y + bounds.height - height;
-
-            graphics2D.setColor(colorFor(record.getAlgorithm() + record.getMode() + record.getThreads()));
-            graphics2D.fill(new Rectangle2D.Double(x, y, barWidth, height));
-            graphics2D.setColor(Color.DARK_GRAY);
-            graphics2D.draw(new Rectangle2D.Double(x, y, barWidth, height));
-
-            drawVerticalLabel(graphics2D, buildBarLabel(record), x + barWidth / 2.0, bounds.y + bounds.height + 10);
-        }
-    }
-
-    private void drawLineChart(Graphics2D graphics2D, List<BenchmarkSummaryRecord> filteredRecords) {
-        if (filteredRecords.isEmpty()) {
-            drawEmptyState(graphics2D, "Nenhum dado encontrado para os filtros atuais.");
-            return;
-        }
-
-        Map<String, List<BenchmarkSummaryRecord>> seriesMap = buildLineSeries(filteredRecords);
-
-        if (seriesMap.isEmpty()) {
-            drawEmptyState(graphics2D, "Nao foi possivel montar series para o grafico de linhas.");
-            return;
-        }
-
-        double maxValue = filteredRecords.stream()
-                .mapToDouble(BenchmarkSummaryRecord::getAverageTimeMs)
-                .max()
-                .orElse(1.0);
+        Map<String, List<BenchmarkSummaryRecord>> seriesMap = filteredRecords.stream()
+                .collect(Collectors.groupingBy(BenchmarkSummaryRecord::getAlgorithm, LinkedHashMap::new, Collectors.toList()));
 
         List<Integer> xValues = filteredRecords.stream()
                 .map(BenchmarkSummaryRecord::getArraySize)
@@ -150,13 +134,153 @@ public class ChartPanel extends JPanel {
                 .sorted()
                 .collect(Collectors.toList());
 
-        if (xValues.size() < 2) {
-            drawEmptyState(graphics2D, "Selecione mais de um tamanho de entrada para o grafico de linhas.");
+        drawLineChart(graphics2D, seriesMap, xValues, "Tempo medio (ms)");
+    }
+
+    private void drawSerialVsParallelChart(Graphics2D graphics2D) {
+        List<BenchmarkSummaryRecord> filteredRecords = allRecords.stream()
+                .filter(record -> record.getAlgorithm().equals(filterState.getAlgorithm()))
+                .filter(record -> record.getInputType().equals(filterState.getInputType()))
+                .filter(record -> record.getArraySize() == filterState.getArraySize())
+                .sorted(Comparator.comparing(BenchmarkSummaryRecord::getMode).thenComparingInt(BenchmarkSummaryRecord::getThreads))
+                .collect(Collectors.toList());
+
+        tableRecords = filteredRecords;
+
+        if (filteredRecords.isEmpty()) {
+            drawEmptyState(graphics2D, "Nao ha dados para comparar serial e paralelo nesse cenario.");
             return;
         }
 
+        List<BarValue> bars = new ArrayList<>();
+
+        for (BenchmarkSummaryRecord record : filteredRecords) {
+            String label = "serial".equals(record.getMode()) ? "serial" : record.getThreads() + " threads";
+            bars.add(new BarValue(label, record.getAverageTimeMs(), record.getAlgorithm()));
+        }
+
+        drawBarChart(graphics2D, bars, "Tempo medio (ms)");
+    }
+
+    private void drawInputImpactChart(Graphics2D graphics2D) {
+        List<BenchmarkSummaryRecord> filteredRecords = allRecords.stream()
+                .filter(record -> record.getAlgorithm().equals(filterState.getAlgorithm()))
+                .filter(record -> record.getMode().equals(filterState.getMode()))
+                .filter(record -> record.getArraySize() == filterState.getArraySize())
+                .filter(record -> "serial".equals(filterState.getMode()) || record.getThreads() == filterState.getThreads())
+                .sorted(Comparator.comparing(BenchmarkSummaryRecord::getInputType))
+                .collect(Collectors.toList());
+
+        tableRecords = filteredRecords;
+
+        if (filteredRecords.isEmpty()) {
+            drawEmptyState(graphics2D, "Nao ha dados para comparar os tipos de entrada nesse cenario.");
+            return;
+        }
+
+        List<BarValue> bars = filteredRecords.stream()
+                .map(record -> new BarValue(record.getInputType(), record.getAverageTimeMs(), record.getInputType()))
+                .collect(Collectors.toList());
+
+        drawBarChart(graphics2D, bars, "Tempo medio (ms)");
+    }
+
+    private void drawSpeedupChart(Graphics2D graphics2D) {
+        List<BenchmarkSummaryRecord> scopedRecords = allRecords.stream()
+                .filter(record -> filterState.isAlgorithmInSelectedGroup(record.getAlgorithm()))
+                .filter(record -> record.getInputType().equals(filterState.getInputType()))
+                .filter(record -> record.getArraySize() == filterState.getArraySize())
+                .collect(Collectors.toList());
+
+        tableRecords = scopedRecords.stream()
+                .filter(record -> "parallel".equals(record.getMode()) || "serial".equals(record.getMode()))
+                .sorted(Comparator.comparing(BenchmarkSummaryRecord::getAlgorithm).thenComparingInt(BenchmarkSummaryRecord::getThreads))
+                .collect(Collectors.toList());
+
+        Map<String, BenchmarkSummaryRecord> serialByAlgorithm = scopedRecords.stream()
+                .filter(record -> "serial".equals(record.getMode()))
+                .collect(Collectors.toMap(BenchmarkSummaryRecord::getAlgorithm, record -> record, (left, right) -> left, LinkedHashMap::new));
+
+        Map<String, List<SpeedupPoint>> seriesMap = new LinkedHashMap<>();
+
+        for (String algorithm : serialByAlgorithm.keySet()) {
+            BenchmarkSummaryRecord serialRecord = serialByAlgorithm.get(algorithm);
+            List<SpeedupPoint> points = scopedRecords.stream()
+                    .filter(record -> algorithm.equals(record.getAlgorithm()))
+                    .filter(record -> "parallel".equals(record.getMode()))
+                    .sorted(Comparator.comparingInt(BenchmarkSummaryRecord::getThreads))
+                    .map(record -> new SpeedupPoint(record.getThreads(), serialRecord.getAverageTimeMs() / record.getAverageTimeMs()))
+                    .collect(Collectors.toList());
+
+            if (!points.isEmpty()) {
+                seriesMap.put(algorithm, points);
+            }
+        }
+
+        if (seriesMap.isEmpty()) {
+            drawEmptyState(graphics2D, "Nao ha dados suficientes para calcular speedup nesse cenario.");
+            return;
+        }
+
+        List<Integer> xValues = seriesMap.values().stream()
+                .flatMap(List::stream)
+                .map(SpeedupPoint::threads)
+                .distinct()
+                .sorted()
+                .collect(Collectors.toList());
+
+        double maxValue = seriesMap.values().stream()
+                .flatMap(List::stream)
+                .mapToDouble(SpeedupPoint::speedup)
+                .max()
+                .orElse(1.0);
+
         ChartBounds bounds = buildChartBounds();
-        drawAxes(graphics2D, bounds, maxValue, "Tempo medio (ms)");
+        drawAxes(graphics2D, bounds, Math.max(1.0, maxValue), "Speedup", "Threads");
+        drawLineXAxisLabels(graphics2D, bounds, xValues);
+
+        Stroke previousStroke = graphics2D.getStroke();
+        graphics2D.setStroke(new BasicStroke(2.2f));
+
+        for (Map.Entry<String, List<SpeedupPoint>> entry : seriesMap.entrySet()) {
+            graphics2D.setColor(colorFor(entry.getKey()));
+
+            for (int index = 0; index < entry.getValue().size() - 1; index++) {
+                SpeedupPoint current = entry.getValue().get(index);
+                SpeedupPoint next = entry.getValue().get(index + 1);
+                graphics2D.draw(new Line2D.Double(
+                        mapX(current.threads(), xValues, bounds),
+                        mapY(current.speedup(), Math.max(1.0, maxValue), bounds),
+                        mapX(next.threads(), xValues, bounds),
+                        mapY(next.speedup(), Math.max(1.0, maxValue), bounds)
+                ));
+            }
+
+            for (SpeedupPoint point : entry.getValue()) {
+                double x = mapX(point.threads(), xValues, bounds);
+                double y = mapY(point.speedup(), Math.max(1.0, maxValue), bounds);
+                graphics2D.fillOval((int) x - 4, (int) y - 4, 8, 8);
+            }
+        }
+
+        graphics2D.setStroke(previousStroke);
+        drawLegend(graphics2D, new ArrayList<>(seriesMap.keySet()));
+    }
+
+    private void drawLineChart(Graphics2D graphics2D, Map<String, List<BenchmarkSummaryRecord>> seriesMap, List<Integer> xValues, String yLabel) {
+        if (xValues.size() < 2) {
+            drawEmptyState(graphics2D, "Esse grafico precisa de mais de um tamanho de entrada.");
+            return;
+        }
+
+        double maxValue = seriesMap.values().stream()
+                .flatMap(List::stream)
+                .mapToDouble(BenchmarkSummaryRecord::getAverageTimeMs)
+                .max()
+                .orElse(1.0);
+
+        ChartBounds bounds = buildChartBounds();
+        drawAxes(graphics2D, bounds, maxValue, yLabel, "Tamanho do array");
         drawLineXAxisLabels(graphics2D, bounds, xValues);
 
         Stroke previousStroke = graphics2D.getStroke();
@@ -164,17 +288,17 @@ public class ChartPanel extends JPanel {
 
         for (Map.Entry<String, List<BenchmarkSummaryRecord>> entry : seriesMap.entrySet()) {
             List<BenchmarkSummaryRecord> series = entry.getValue();
-            Color color = colorFor(entry.getKey());
-            graphics2D.setColor(color);
+            graphics2D.setColor(colorFor(entry.getKey()));
 
             for (int index = 0; index < series.size() - 1; index++) {
                 BenchmarkSummaryRecord current = series.get(index);
                 BenchmarkSummaryRecord next = series.get(index + 1);
-                double x1 = mapX(current.getArraySize(), xValues, bounds);
-                double y1 = mapY(current.getAverageTimeMs(), maxValue, bounds);
-                double x2 = mapX(next.getArraySize(), xValues, bounds);
-                double y2 = mapY(next.getAverageTimeMs(), maxValue, bounds);
-                graphics2D.draw(new Line2D.Double(x1, y1, x2, y2));
+                graphics2D.draw(new Line2D.Double(
+                        mapX(current.getArraySize(), xValues, bounds),
+                        mapY(current.getAverageTimeMs(), maxValue, bounds),
+                        mapX(next.getArraySize(), xValues, bounds),
+                        mapY(next.getAverageTimeMs(), maxValue, bounds)
+                ));
             }
 
             for (BenchmarkSummaryRecord record : series) {
@@ -188,146 +312,53 @@ public class ChartPanel extends JPanel {
         drawLegend(graphics2D, new ArrayList<>(seriesMap.keySet()));
     }
 
-    private void drawSpeedupChart(Graphics2D graphics2D, List<BenchmarkSummaryRecord> filteredRecords) {
-        if (filterState.getArraySize() == null) {
-            drawEmptyState(graphics2D, "Selecione um tamanho de entrada para calcular o speedup.");
-            return;
-        }
-
-        Map<String, List<SpeedupPoint>> speedupSeries = buildSpeedupSeries(filteredRecords);
-
-        if (speedupSeries.isEmpty()) {
-            drawEmptyState(graphics2D, "Nao ha dados suficientes para calcular speedup com os filtros atuais.");
-            return;
-        }
-
-        double maxValue = speedupSeries.values().stream()
-                .flatMap(List::stream)
-                .mapToDouble(SpeedupPoint::speedup)
-                .max()
-                .orElse(1.0);
-
-        List<Integer> threadValues = speedupSeries.values().stream()
-                .flatMap(List::stream)
-                .map(SpeedupPoint::threads)
-                .distinct()
-                .sorted()
-                .collect(Collectors.toList());
-
+    private void drawBarChart(Graphics2D graphics2D, List<BarValue> bars, String yLabel) {
+        double maxValue = bars.stream().mapToDouble(BarValue::value).max().orElse(1.0);
         ChartBounds bounds = buildChartBounds();
-        drawAxes(graphics2D, bounds, Math.max(1.0, maxValue), "Speedup");
-        drawLineXAxisLabels(graphics2D, bounds, threadValues);
+        drawAxes(graphics2D, bounds, maxValue, yLabel, "Cenario");
 
-        Stroke previousStroke = graphics2D.getStroke();
-        graphics2D.setStroke(new BasicStroke(2.2f));
+        double slotWidth = (double) bounds.width / bars.size();
+        double barWidth = Math.max(26, slotWidth * 0.58);
 
-        for (Map.Entry<String, List<SpeedupPoint>> entry : speedupSeries.entrySet()) {
-            List<SpeedupPoint> series = entry.getValue();
-            Color color = colorFor(entry.getKey());
-            graphics2D.setColor(color);
+        for (int index = 0; index < bars.size(); index++) {
+            BarValue bar = bars.get(index);
+            double height = (bar.value() / maxValue) * bounds.height;
+            double x = bounds.x + slotWidth * index + (slotWidth - barWidth) / 2.0;
+            double y = bounds.y + bounds.height - height;
 
-            for (int index = 0; index < series.size() - 1; index++) {
-                SpeedupPoint current = series.get(index);
-                SpeedupPoint next = series.get(index + 1);
-                double x1 = mapX(current.threads(), threadValues, bounds);
-                double y1 = mapY(current.speedup(), Math.max(1.0, maxValue), bounds);
-                double x2 = mapX(next.threads(), threadValues, bounds);
-                double y2 = mapY(next.speedup(), Math.max(1.0, maxValue), bounds);
-                graphics2D.draw(new Line2D.Double(x1, y1, x2, y2));
-            }
+            graphics2D.setColor(colorFor(bar.colorKey()));
+            graphics2D.fill(new Rectangle2D.Double(x, y, barWidth, height));
+            graphics2D.setColor(Color.DARK_GRAY);
+            graphics2D.draw(new Rectangle2D.Double(x, y, barWidth, height));
+            graphics2D.setFont(getFont().deriveFont(11f));
 
-            for (SpeedupPoint point : series) {
-                double x = mapX(point.threads(), threadValues, bounds);
-                double y = mapY(point.speedup(), Math.max(1.0, maxValue), bounds);
-                graphics2D.fillOval((int) x - 4, (int) y - 4, 8, 8);
-            }
+            String label = bar.label();
+            int labelWidth = graphics2D.getFontMetrics().stringWidth(label);
+            graphics2D.drawString(label, (int) (x + barWidth / 2 - labelWidth / 2.0), bounds.y + bounds.height + 24);
+            graphics2D.drawString(formatValue(bar.value()), (int) (x + 2), (int) (y - 6));
         }
-
-        graphics2D.setStroke(previousStroke);
-        drawLegend(graphics2D, new ArrayList<>(speedupSeries.keySet()));
     }
 
-    private Map<String, List<BenchmarkSummaryRecord>> buildLineSeries(List<BenchmarkSummaryRecord> filteredRecords) {
-        Map<String, List<BenchmarkSummaryRecord>> seriesMap = new LinkedHashMap<>();
-
-        for (BenchmarkSummaryRecord record : filteredRecords) {
-            String seriesKey = buildLineSeriesKey(record);
-            seriesMap.computeIfAbsent(seriesKey, key -> new ArrayList<>()).add(record);
-        }
-
-        for (List<BenchmarkSummaryRecord> series : seriesMap.values()) {
-            series.sort(Comparator.comparingInt(BenchmarkSummaryRecord::getArraySize));
-        }
-
-        return seriesMap;
-    }
-
-    private Map<String, List<SpeedupPoint>> buildSpeedupSeries(List<BenchmarkSummaryRecord> filteredRecords) {
-        List<BenchmarkSummaryRecord> scopedRecords = filteredRecords.stream()
-                .filter(record -> filterState.getArraySize() == record.getArraySize())
-                .filter(record -> GraphFilterState.ALL.equals(filterState.getAlgorithm()) || filterState.getAlgorithm().equals(record.getAlgorithm()))
-                .filter(record -> GraphFilterState.ALL.equals(filterState.getInputType()) || filterState.getInputType().equals(record.getInputType()))
-                .collect(Collectors.toList());
-
-        Map<String, BenchmarkSummaryRecord> serialByKey = new LinkedHashMap<>();
-        Map<String, List<BenchmarkSummaryRecord>> parallelByKey = new LinkedHashMap<>();
-
-        for (BenchmarkSummaryRecord record : scopedRecords) {
-            String key = record.getAlgorithm() + "|" + record.getInputType() + "|" + record.getArraySize();
-
-            if ("serial".equals(record.getMode())) {
-                serialByKey.put(key, record);
-            } else if ("parallel".equals(record.getMode())) {
-                parallelByKey.computeIfAbsent(key, ignored -> new ArrayList<>()).add(record);
-            }
-        }
-
-        Map<String, List<SpeedupPoint>> seriesMap = new LinkedHashMap<>();
-
-        for (Map.Entry<String, List<BenchmarkSummaryRecord>> entry : parallelByKey.entrySet()) {
-            BenchmarkSummaryRecord serialRecord = serialByKey.get(entry.getKey());
-
-            if (serialRecord == null) {
-                continue;
-            }
-
-            String seriesLabel = buildSpeedupSeriesLabel(serialRecord);
-            List<SpeedupPoint> points = new ArrayList<>();
-
-            for (BenchmarkSummaryRecord parallelRecord : entry.getValue()) {
-                points.add(new SpeedupPoint(
-                        parallelRecord.getThreads(),
-                        serialRecord.getAverageTimeMs() / parallelRecord.getAverageTimeMs()
-                ));
-            }
-
-            points.sort(Comparator.comparingInt(SpeedupPoint::threads));
-            seriesMap.put(seriesLabel, points);
-        }
-
-        return seriesMap;
-    }
-
-    private void drawAxes(Graphics2D graphics2D, ChartBounds bounds, double maxValue, String yLabel) {
+    private void drawAxes(Graphics2D graphics2D, ChartBounds bounds, double maxValue, String yLabel, String xLabel) {
         graphics2D.setColor(new Color(90, 90, 90));
         graphics2D.drawLine(bounds.x, bounds.y, bounds.x, bounds.y + bounds.height);
         graphics2D.drawLine(bounds.x, bounds.y + bounds.height, bounds.x + bounds.width, bounds.y + bounds.height);
 
         graphics2D.setFont(getFont().deriveFont(11f));
-        int divisions = 5;
 
-        for (int index = 0; index <= divisions; index++) {
-            double value = maxValue * index / divisions;
-            double y = bounds.y + bounds.height - (bounds.height * index / (double) divisions);
-
+        for (int index = 0; index <= 5; index++) {
+            double value = maxValue * index / 5.0;
+            double y = bounds.y + bounds.height - (bounds.height * index / 5.0);
             graphics2D.setColor(new Color(235, 235, 235));
             graphics2D.draw(new Line2D.Double(bounds.x, y, bounds.x + bounds.width, y));
             graphics2D.setColor(new Color(80, 80, 80));
-            graphics2D.drawString(String.format("%.2f", value), 20, (int) y + 4);
+            graphics2D.drawString(formatValue(value), 20, (int) y + 4);
         }
 
         graphics2D.setColor(new Color(60, 60, 60));
-        graphics2D.drawString(yLabel, 22, TOP_MARGIN - 12);
+        graphics2D.drawString(yLabel, 22, TOP_MARGIN - 14);
+        int xLabelWidth = graphics2D.getFontMetrics().stringWidth(xLabel);
+        graphics2D.drawString(xLabel, bounds.x + bounds.width / 2 - xLabelWidth / 2, getHeight() - 18);
     }
 
     private void drawLineXAxisLabels(Graphics2D graphics2D, ChartBounds bounds, List<Integer> xValues) {
@@ -343,9 +374,8 @@ public class ChartPanel extends JPanel {
     }
 
     private void drawLegend(Graphics2D graphics2D, List<String> labels) {
-        int x = getWidth() - 220;
-        int y = 22;
-
+        int x = getWidth() - 240;
+        int y = 24;
         graphics2D.setFont(getFont().deriveFont(11f));
 
         for (String label : labels) {
@@ -357,15 +387,6 @@ public class ChartPanel extends JPanel {
         }
     }
 
-    private void drawVerticalLabel(Graphics2D graphics2D, String label, double centerX, int baselineY) {
-        Graphics2D rotated = (Graphics2D) graphics2D.create();
-        rotated.setFont(getFont().deriveFont(10f));
-        rotated.setColor(new Color(60, 60, 60));
-        rotated.rotate(-Math.PI / 4, centerX, baselineY);
-        rotated.drawString(label, (int) centerX - 10, baselineY + 4);
-        rotated.dispose();
-    }
-
     private void drawEmptyState(Graphics2D graphics2D, String message) {
         graphics2D.setColor(new Color(110, 110, 110));
         graphics2D.setFont(getFont().deriveFont(Font.PLAIN, 14f));
@@ -373,51 +394,8 @@ public class ChartPanel extends JPanel {
         graphics2D.drawString(message, (getWidth() - textWidth) / 2, getHeight() / 2);
     }
 
-    private String buildBarLabel(BenchmarkSummaryRecord record) {
-        StringBuilder label = new StringBuilder(record.getAlgorithm());
-
-        if (!GraphFilterState.ALL.equals(filterState.getMode())) {
-            label.append(" ").append(record.getThreads()).append("t");
-        } else {
-            label.append(" ").append(record.getMode());
-            if ("parallel".equals(record.getMode())) {
-                label.append("-").append(record.getThreads()).append("t");
-            }
-        }
-
-        if (filterState.getArraySize() == null) {
-            label.append(" ").append(record.getArraySize());
-        }
-
-        return label.toString();
-    }
-
-    private String buildLineSeriesKey(BenchmarkSummaryRecord record) {
-        if (!GraphFilterState.ALL.equals(filterState.getAlgorithm())) {
-            if ("parallel".equals(record.getMode()) && filterState.getThreads() == null) {
-                return record.getMode() + "-" + record.getThreads() + " threads";
-            }
-
-            if (GraphFilterState.ALL.equals(filterState.getMode())) {
-                return record.getMode() + ("parallel".equals(record.getMode()) ? "-" + record.getThreads() + " threads" : "");
-            }
-
-            return record.getAlgorithm();
-        }
-
-        return record.getAlgorithm() + ("parallel".equals(record.getMode()) ? "-" + record.getThreads() + " threads" : "");
-    }
-
-    private String buildSpeedupSeriesLabel(BenchmarkSummaryRecord record) {
-        if (!GraphFilterState.ALL.equals(filterState.getAlgorithm())) {
-            return record.getInputType();
-        }
-
-        if (!GraphFilterState.ALL.equals(filterState.getInputType())) {
-            return record.getAlgorithm();
-        }
-
-        return record.getAlgorithm() + " - " + record.getInputType();
+    private String formatValue(double value) {
+        return String.format(Locale.US, "%.2f", value);
     }
 
     private double mapX(int value, List<Integer> xValues, ChartBounds bounds) {
@@ -462,5 +440,8 @@ public class ChartPanel extends JPanel {
     }
 
     private record SpeedupPoint(int threads, double speedup) {
+    }
+
+    private record BarValue(String label, double value, String colorKey) {
     }
 }
