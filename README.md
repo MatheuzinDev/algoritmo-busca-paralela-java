@@ -22,7 +22,6 @@ Esse comando inicia a classe `Main` usando as classes compiladas na pasta `out`.
 
 **Autores:** Matheus Diógenes Amorim, Matheus Holanda de Sá  
 **Palavras-chave:** Algoritmos de ordenação, programação paralela, concorrência, ForkJoinPool, análise de desempenho.  
-**PDF original:** [Artigo-Computação-Paralela.pdf](Artigo-Computação-Paralela.pdf)  
 **Link do projeto citado no artigo:** [github.com/MatheuzinDev/algoritmo-busca-paralela-java](https://github.com/MatheuzinDev/algoritmo-busca-paralela-java)
 
 ## Índice
